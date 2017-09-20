@@ -1,15 +1,10 @@
 require "fluent/plugin/auditd"
+require 'fluent/parser'
+require 'fluent/time'
 
 module Fluent
   class AuditdParser < Parser
-    Fluent::Plugin.register_parser("auditd", self)
-
-    desc "The format of the time field."
-    config_param :time_format, :string, default: nil
-
-    def initialize
-      super
-    end
+    Plugin.register_parser("auditd", self)
 
     def configure(conf={})
       super
@@ -19,12 +14,12 @@ module Fluent
     def parse(text)
       begin
         parsed_line = @auditd.parse_auditd_line text
-        yield 1000000000, parsed_line
-      rescue AuditParserException => e
+        time = Time.now.to_f.round(3)
+        yield time, parsed_line
+      rescue Fluent::Auditd::AuditdParserException => e
         log.error e.message
         yield nil, nil
       end
     end
-
   end
 end
