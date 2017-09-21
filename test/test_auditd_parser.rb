@@ -16,6 +16,12 @@ module ParserTest
     data("line" => [
 '{
   "type": "VIRT_CONTROL",
+  "time": "1505977228.725",
+  "pid": "1115",
+  "uid": "0",
+  "auid": "4294967295",
+  "ses": "4294967295",
+  "subj": "system_u:system_r:container_runtime_t:s0",
   "msg": {
     "auid": "1000",
     "reason": "api",
@@ -23,12 +29,7 @@ module ParserTest
     "user": "jkarasek",
     "exe": "\"/usr/bin/dockerd-current\"",
     "res": "success"
-  },
-  "pid": "1115",
-  "uid": "0",
-  "auid": "4294967295",
-  "ses": "4294967295",
-  "subj": "system_u:system_r:container_runtime_t:s0"
+  }
 }', "type=VIRT_CONTROL msg=audit(1505977228.725:3309): pid=1115 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:container_runtime_t:s0 msg='auid=1000 exe=? reason=api op=_ping vm=? vm-pid=? user=jkarasek hostname=?  exe=\"/usr/bin/dockerd-current\" hostname=? addr=? terminal=? res=success'"])
     def test_correct_data(data)
       begin
