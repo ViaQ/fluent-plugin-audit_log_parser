@@ -3,52 +3,49 @@ module Fluent
     class AuditdParserException < StandardError
     end
     
-    MSG = "msg"
-    TIMESTAMP = "time"
-    AUDIT = "audit"
+    MSG = 'msg'
+    TIMESTAMP = 'time'
+    AUDIT = 'audit'
 
     def parse_auditd_line(line)
-      states = {}
-      states[:start] = 0
-      states[:key] = 1
-      states[:value] = 2
+      states = {start: 0, key: 1, value: 2}
       state = states[:start]
-      stack = ["$"]
-      line << "$"
+      stack = ['$']
+      line << '$'
       nested = false
       key, nested_key, value = nil
       result = {}
       for i in 0...line.length do
         if state == states[:start]
-          if line[i] == "$"
+          if line[i] == '$'
             # last element
-            if stack.last != "$"
+            if stack.last != '$'
               # input symbol doesn't match stack symbol
               handle_error line, result
             end
           else
             # reading new key
             # here might be an extra space
-            if line[i] == " "
+            if line[i] == ' ' 
               next
             end
             key = line[i]
             state = states[:key]
           end
         elsif state == states[:key]
-          if line[i] == "="
+          if line[i] == '='
             # finished reading key
             state = states[:value]
-            value = ""
+            value = ''
           else
             # reading key
             key << line[i]
           end
         elsif state == states[:value]
-          if line[i] == " "
+          if line[i] == ' '
             # finished reading value
             state = states[:start]
-            insert(result, nested, key, nested_key, value) unless value == "?"
+            insert(result, nested, key, nested_key, value) unless value == '?'
           elsif line[i] == "'"
             if stack.last == "'"
               # finished reading nested structure 
@@ -63,10 +60,10 @@ module Fluent
               result[nested_key] = {}
             end
             state = states[:start]
-          elsif line[i] == "$"
+          elsif line[i] == '$'
             # end of input
-            if stack.last == "$"
-              insert(result, nested, key, nested_key, value) unless value == "?"
+            if stack.last == '$'
+              insert(result, nested, key, nested_key, value) unless value == '?'
             else
               # input symbol doesn't match stack symbol
               handle_error line, result
