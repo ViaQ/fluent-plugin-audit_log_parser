@@ -44,11 +44,7 @@ module Fluent
           if line[i] == " "
             # finished reading value
             state = states[:start]
-            if nested
-              result[nested_key][key] = value
-            else
-              result[key] = value
-            end
+            insert(result, nested, key, nested_key, value) unless value == "?"
           elsif line[i] == "'"
             if stack.last == "'"
               # finished reading nested structure 
@@ -66,11 +62,7 @@ module Fluent
           elsif line[i] == "$"
             # end of input
             if stack.last == "$"
-              if nested
-                result[nested_key][key] = value
-              else
-                result[key] = value
-              end
+              insert(result, nested, key, nested_key, value) unless value == "?"
             else
               # input symbol doesn't match stack symbol
               handle_error line, result
@@ -88,8 +80,34 @@ module Fluent
     end
 
     def handle_error(line, result)
-      raise AuditdParserException sprintf "Error after processing string '%s'\nBuilt %s", line, result
+      raise AuditdParserException, (sprintf \
+        "Error after processing string '%s'\nBuilt %s", line, result)
     end
 
+    def insert(result, nested, key, nested_key, value)
+      if nested
+        if result[nested_key][key].nil?
+          result[nested_key][key] = value
+        else
+          if result[nested_key][key].kind_of?(Array)
+            result[nested_key][key] << value
+          else
+            temp = result[nested_key][key]
+            result[nested_key][key] = [temp, value]
+          end
+        end
+      else
+        if result[key].nil?
+          result[key] = value
+        else
+          if result[key].kind_of?(Array)
+            result[key] << value
+          else
+            temp = result[key]
+            result[key] = [temp, value]
+          end
+        end
+      end
+    end
   end
 end
