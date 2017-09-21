@@ -3,6 +3,10 @@ module Fluent
     class AuditdParserException < StandardError
     end
     
+    MSG = "msg"
+    TIMESTAMP = "time"
+    AUDIT = "audit"
+
     def parse_auditd_line(line)
       states = {}
       states[:start] = 0
@@ -85,6 +89,12 @@ module Fluent
     end
 
     def insert(result, nested, key, nested_key, value)
+      # auditd may duplicate keys, save timestamp before it can be overriden
+      if key == MSG and value.start_with?(AUDIT)
+        key = TIMESTAMP
+        value.sub!(/audit\((?<g1>.*):\d{4,}\):/, '\k<g1>')
+      end
+
       if nested
         if result[nested_key][key].nil?
           result[nested_key][key] = value
