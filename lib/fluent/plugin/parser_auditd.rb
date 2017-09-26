@@ -14,7 +14,7 @@ module Fluent
     def parse(text)
       begin
         parsed_line = @auditd.parse_auditd_line text
-        time = Time.now.to_f.round(3)
+        time = parsed_line.nil? ? nil : parsed_line['time']
         yield time, parsed_line
       rescue Fluent::Auditd::AuditdParserException => e
         log.error e.message

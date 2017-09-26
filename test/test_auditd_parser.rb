@@ -30,7 +30,7 @@ module ParserTest
     "exe": "\"/usr/bin/dockerd-current\"",
     "res": "success"
   }
-}', "type=VIRT_CONTROL msg=audit(1505977228.725:3309): pid=1115 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:container_runtime_t:s0 msg='auid=1000 exe=? reason=api op=_ping vm=? vm-pid=? user=jkarasek hostname=?  exe=\"/usr/bin/dockerd-current\" hostname=? addr=? terminal=? res=success'"])
+}', "type=VIRT_CONTROL msg=audit(1506321923.246:470): pid=1182 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:container_runtime_t:s0 msg='reason=api vm-pid=10657 hostname=1235c5a6476b op=resize vm=centos:7 user=origin auid=1000 exe=sleep  exe=\"/usr/bin/dockerd-current\" hostname=? addr=? terminal=? res=success'"])
     def test_correct_data(data)
       expected, target = data
       puts JSON.pretty_generate (@parser.parse_auditd_line target)

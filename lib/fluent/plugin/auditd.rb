@@ -1,10 +1,13 @@
 require 'time'
 
+# Parses docker audit log to format that fits Origin Aggregated Logging
 module Fluent
   class Auditd
+
     class AuditdParserException < StandardError
     end
 
+    # Keys as found in raw audit.log messsages
     IN_HOST_PID = 'pid'
     IN_HOST_UID = 'uid'
     IN_HOST_AUID = 'auid'
@@ -17,45 +20,60 @@ module Fluent
     IN_VM_PID = 'vm-pid'
     IN_VM_USER = 'user'
     IN_VM_EXE = 'exe'
-    IN_VM_REASPON = 'reason'
+    IN_VM_REASON = 'reason'
     IN_VM_OPERATION = 'op'
     IN_VM_RESULT = 'res'
     IN_EVENT_TYPE = 'virt_control'
 
-    OUT_HOST_PID = 'systemd.t.PID'
-    OUT_HOST_UID = 'systemd.t.UID'
-    OUT_HOST_AUID = 'systemd.t.AUDIT_LOGINUID'
-    OUT_HOST_SESSION = 'systemd.t.AUDIT_SESSION'
-    OUT_HOST_SELINUX_LABEL = 'systemd.t.SELINUX_CONTEXT'
+    # Keys used in Origin Aggregated Logging schema
+    OUT_HOST_PID = 'PID'
+    OUT_HOST_UID = 'UID'
+    OUT_HOST_AUID = 'AUDIT_LOGINUID'
+    OUT_HOST_SESSION = 'AUDIT_SESSION'
+    OUT_HOST_SELINUX_LABEL = 'SELINUX_CONTEXT'
     OUT_HOST_HOSTNAME = 'hostname'
+    OUT_HOST_EXE = 'EXE'
     OUT_VM_AUID = 'auid'
     OUT_VM_HOSTNAME = 'container_id_short'
     OUT_VM_IMAGE = 'container_image'
     OUT_VM_PID = 'pid'
     OUT_VM_USER = 'user'
-    OUT_VM_EXE = 'systemd.t.EXE'
-    OUT_VM_REASPON = 'reason'
+    OUT_VM_COMMAND = 'command'
+    OUT_VM_REASON = 'reason'
     OUT_VM_OPERATION = 'operation'
     OUT_VM_RESULT = 'result'
-    OUT_EVENT_TYPE = 'docker.audit_event_type'
+    OUT_EVENT_TYPE = 'audit_event_type'
 
     TIME = 'time'
+    SYSTEMD = 'systemd'
+    TRUSTED = 't'
+    DOCKER = 'docker'
+    VIRT_CONTROL = 'VIRT_CONTROL'
     
+    # Takes one line from audit.log and returns hash
+    # that fits the OAL format.
+    # Messages of other types than 'virt_control' are ignored.
     def parse_auditd_line(line)
-      result = {}
-      vc = {}
-      if metadata = /(?<g1>.*?) msg='(?<g2>.*?)'/.match(line) 
-        if (!metadata['g1'].nil?) && (!metadata['g2'].nil?)
-          parse_metadata(result, metadata['g1'].split)
-          parse_msg(vc, metadata['g2'].split)
-          result['virt_control'] = vc
+      if filter_virt_control(line)
+        event = {}
+        docker = {}
+        if (metadata = /(?<g1>.*?) msg='(?<g2>.*?)'/.match(line)) && !metadata['g1'].nil? && !metadata['g2'].nil?
+          parse_metadata(event, metadata['g1'].split)
+          parse_msg(docker, metadata['g2'].split)
+          event[IN_EVENT_TYPE] = docker
         else
-          handle_error "Couldn't parse message: #{line}"
+          raise AuditdParserException, "Couldn't parse message: #{line}"
         end
-      else
-        handle_error "Couldn't parse message: #{line}"
+        return normalize(event)
       end
-      return normalize(result)
+      return nil
+    end
+
+    private
+
+    def filter_virt_control(line)
+      return (type = /^type=(?<type>[a-zA-Z_]+)/.match(line)) && type['type'] == VIRT_CONTROL && \
+      /\/usr\/bin\/dockerd-current/.match(line)
     end
 
     def parse_metadata(result, metadata)
@@ -84,29 +102,48 @@ module Fluent
       end
     end
 
-    def handle_error(msg)
-      raise AuditdParserException, msg
-    end
-
     def normalize(target)
       event = {}
-      event[TIME] =                 Time.at(target[TIME].to_f).utc.to_datetime.rfc3339(6)
-      event[OUT_HOST_PID]           = target[IN_HOST_PID] unless target[IN_HOST_PID].nil?
-      event[OUT_HOST_UID]           = target[IN_HOST_UID] unless target[IN_HOST_UID].nil?
-      event[OUT_HOST_AUID]          = target[IN_HOST_AUID] unless target[IN_HOST_AUID].nil?
-      event[OUT_HOST_SESSION]       = target[IN_HOST_SESSION] unless target[IN_HOST_SESSION].nil?
-      event[OUT_HOST_SELINUX_LABEL] = target[IN_HOST_SELINUX_LABEL] unless target[IN_HOST_SELINUX_LABEL].nil?
+      event[TIME]                                     = Time.at(target[TIME].to_f).utc.to_datetime.rfc3339(6)
+      event[SYSTEMD] = { TRUSTED => {} }
+      event[SYSTEMD][TRUSTED][OUT_HOST_PID]           = target[IN_HOST_PID] unless target[IN_HOST_PID].nil?
+      event[SYSTEMD][TRUSTED][OUT_HOST_UID]           = target[IN_HOST_UID] unless target[IN_HOST_UID].nil?
+      event[SYSTEMD][TRUSTED][OUT_HOST_AUID]          = target[IN_HOST_AUID] unless target[IN_HOST_AUID].nil?
+      event[SYSTEMD][TRUSTED][OUT_HOST_SESSION]       = target[IN_HOST_SESSION] unless target[IN_HOST_SESSION].nil?
+      event[SYSTEMD][TRUSTED][OUT_HOST_SELINUX_LABEL] = target[IN_HOST_SELINUX_LABEL] unless target[IN_HOST_SELINUX_LABEL].nil?
+      
+      event[DOCKER] = {}
+      event[DOCKER][OUT_VM_AUID]      = target[IN_EVENT_TYPE][IN_VM_AUID] unless target[IN_EVENT_TYPE][IN_VM_AUID].nil?
+      event[DOCKER][OUT_VM_HOSTNAME]  = target[IN_EVENT_TYPE][IN_VM_HOSTNAME] unless target[IN_EVENT_TYPE][IN_VM_HOSTNAME].nil?
+      event[DOCKER][OUT_VM_IMAGE]     = target[IN_EVENT_TYPE][IN_VM_IMAGE] unless target[IN_EVENT_TYPE][IN_VM_IMAGE].nil?
+      event[DOCKER][OUT_VM_PID]       = target[IN_EVENT_TYPE][IN_VM_PID] unless target[IN_EVENT_TYPE][IN_VM_PID].nil?
+      event[DOCKER][OUT_VM_USER]      = target[IN_EVENT_TYPE][IN_VM_USER] unless target[IN_EVENT_TYPE][IN_VM_USER].nil?
+      event[DOCKER][OUT_VM_REASON]    = target[IN_EVENT_TYPE][IN_VM_REASON] unless target[IN_EVENT_TYPE][IN_VM_REASON].nil?
+      event[DOCKER][OUT_VM_OPERATION] = target[IN_EVENT_TYPE][IN_VM_OPERATION] unless target[IN_EVENT_TYPE][IN_VM_OPERATION].nil?
+      event[DOCKER][OUT_VM_RESULT]    = target[IN_EVENT_TYPE][IN_VM_RESULT] unless target[IN_EVENT_TYPE][IN_VM_RESULT].nil?
 
-      event[OUT_VM_AUID]            = target[IN_EVENT_TYPE][IN_VM_AUID] unless target[IN_EVENT_TYPE][IN_VM_AUID].nil?
-      event[OUT_VM_HOSTNAME]        = target[IN_EVENT_TYPE][IN_VM_HOSTNAME] unless target[IN_EVENT_TYPE][IN_VM_HOSTNAME].nil?
-      event[OUT_VM_IMAGE]           = target[IN_EVENT_TYPE][IN_VM_IMAGE] unless target[IN_EVENT_TYPE][IN_VM_IMAGE].nil?
-      event[OUT_VM_PID]             = target[IN_EVENT_TYPE][IN_VM_PID] unless target[IN_EVENT_TYPE][IN_VM_PID].nil?
-      event[OUT_VM_USER]            = target[IN_EVENT_TYPE][IN_VM_USER] unless target[IN_EVENT_TYPE][IN_VM_USER].nil?
-      event[OUT_VM_EXE]             = target[IN_EVENT_TYPE][IN_VM_EXE] unless target[IN_EVENT_TYPE][IN_VM_EXE].nil?
-      event[OUT_VM_REASPON]         = target[IN_EVENT_TYPE][IN_VM_REASPON] unless target[IN_EVENT_TYPE][IN_VM_REASPON].nil?
-      event[OUT_VM_OPERATION]       = target[IN_EVENT_TYPE][IN_VM_OPERATION] unless target[IN_EVENT_TYPE][IN_VM_OPERATION].nil?
-      event[OUT_VM_RESULT]          = target[IN_EVENT_TYPE][IN_VM_RESULT] unless target[IN_EVENT_TYPE][IN_VM_RESULT].nil?
+      # raw audit.log duplicates 'exe' key
+      if !target[IN_EVENT_TYPE][IN_VM_EXE].nil?
+        exe_a = dedup_exe(target[IN_EVENT_TYPE][IN_VM_EXE])
+        event[SYSTEMD][TRUSTED][OUT_HOST_EXE] = exe_a[0] unless exe_a[0].nil?
+        event[DOCKER][OUT_VM_COMMAND]         = exe_a[1] unless exe_a[1].nil?
+      end
       return event
+    end
+
+    def dedup_exe(field)
+      event_exe = field
+      docker_command = nil
+      if field.kind_of?(Array)
+        field.each do |f|
+          if /dockerd-current/.match(f)
+            event_exe = f
+          else
+            docker_command = f
+          end
+        end
+      end
+      return event_exe, docker_command
     end
 
   end
