@@ -33,7 +33,7 @@ module Fluent
     OUT_HOST_SELINUX_LABEL = 'SELINUX_CONTEXT'
     OUT_HOST_HOSTNAME = 'hostname'
     OUT_HOST_EXE = 'EXE'
-    OUT_VM_AUID = 'auid'
+    OUT_VM_AUID = 'sauid'
     OUT_VM_HOSTNAME = 'container_id_short'
     OUT_VM_IMAGE = 'container_image'
     OUT_VM_PID = 'pid'
@@ -42,13 +42,13 @@ module Fluent
     OUT_VM_REASON = 'reason'
     OUT_VM_OPERATION = 'operation'
     OUT_VM_RESULT = 'result'
-    OUT_EVENT_TYPE = 'audit_event_type'
 
     TIME = 'time'
     SYSTEMD = 'systemd'
     TRUSTED = 't'
     DOCKER = 'docker'
     VIRT_CONTROL = 'VIRT_CONTROL'
+    ENV_HOSTNAME = 'NODE_NAME'
     
     # Takes one line from audit.log and returns hash
     # that fits the OAL format.
@@ -113,14 +113,15 @@ module Fluent
       event[SYSTEMD][TRUSTED][OUT_HOST_SELINUX_LABEL] = target[IN_HOST_SELINUX_LABEL] unless target[IN_HOST_SELINUX_LABEL].nil?
       
       event[DOCKER] = {}
-      event[DOCKER][OUT_VM_AUID]      = target[IN_EVENT_TYPE][IN_VM_AUID] unless target[IN_EVENT_TYPE][IN_VM_AUID].nil?
-      event[DOCKER][OUT_VM_HOSTNAME]  = target[IN_EVENT_TYPE][IN_VM_HOSTNAME] unless target[IN_EVENT_TYPE][IN_VM_HOSTNAME].nil?
-      event[DOCKER][OUT_VM_IMAGE]     = target[IN_EVENT_TYPE][IN_VM_IMAGE] unless target[IN_EVENT_TYPE][IN_VM_IMAGE].nil?
-      event[DOCKER][OUT_VM_PID]       = target[IN_EVENT_TYPE][IN_VM_PID] unless target[IN_EVENT_TYPE][IN_VM_PID].nil?
-      event[DOCKER][OUT_VM_USER]      = target[IN_EVENT_TYPE][IN_VM_USER] unless target[IN_EVENT_TYPE][IN_VM_USER].nil?
-      event[DOCKER][OUT_VM_REASON]    = target[IN_EVENT_TYPE][IN_VM_REASON] unless target[IN_EVENT_TYPE][IN_VM_REASON].nil?
-      event[DOCKER][OUT_VM_OPERATION] = target[IN_EVENT_TYPE][IN_VM_OPERATION] unless target[IN_EVENT_TYPE][IN_VM_OPERATION].nil?
-      event[DOCKER][OUT_VM_RESULT]    = target[IN_EVENT_TYPE][IN_VM_RESULT] unless target[IN_EVENT_TYPE][IN_VM_RESULT].nil?
+      event[DOCKER][OUT_VM_AUID]       = target[IN_EVENT_TYPE][IN_VM_AUID] unless target[IN_EVENT_TYPE][IN_VM_AUID].nil?
+      event[DOCKER][OUT_VM_HOSTNAME]   = target[IN_EVENT_TYPE][IN_VM_HOSTNAME] unless target[IN_EVENT_TYPE][IN_VM_HOSTNAME].nil?
+      event[DOCKER][OUT_VM_IMAGE]      = target[IN_EVENT_TYPE][IN_VM_IMAGE] unless target[IN_EVENT_TYPE][IN_VM_IMAGE].nil?
+      event[DOCKER][OUT_VM_PID]        = target[IN_EVENT_TYPE][IN_VM_PID] unless target[IN_EVENT_TYPE][IN_VM_PID].nil?
+      event[DOCKER][OUT_VM_USER]       = target[IN_EVENT_TYPE][IN_VM_USER] unless target[IN_EVENT_TYPE][IN_VM_USER].nil?
+      event[DOCKER][OUT_VM_REASON]     = target[IN_EVENT_TYPE][IN_VM_REASON] unless target[IN_EVENT_TYPE][IN_VM_REASON].nil?
+      event[DOCKER][OUT_VM_OPERATION]  = target[IN_EVENT_TYPE][IN_VM_OPERATION] unless target[IN_EVENT_TYPE][IN_VM_OPERATION].nil?
+      event[DOCKER][OUT_VM_RESULT]     = target[IN_EVENT_TYPE][IN_VM_RESULT] unless target[IN_EVENT_TYPE][IN_VM_RESULT].nil?
+      event[DOCKER][OUT_HOST_HOSTNAME] = ENV[ENV_HOSTNAME] unless ENV[ENV_HOSTNAME].nil?
 
       # raw audit.log duplicates 'exe' key
       if !target[IN_EVENT_TYPE][IN_VM_EXE].nil?
