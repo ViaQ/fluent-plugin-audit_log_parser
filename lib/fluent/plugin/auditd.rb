@@ -34,7 +34,7 @@ module Fluent
     OUT_HOST_HOSTNAME = 'hostname'
     OUT_HOST_EXE = 'EXE'
     OUT_VM_AUID = 'sauid'
-    OUT_VM_HOSTNAME = 'container_id_short'
+    OUT_VM_CONT_ID  = 'container_id_short'
     OUT_VM_IMAGE = 'container_image'
     OUT_VM_PID = 'pid'
     OUT_VM_USER = 'user'
@@ -104,7 +104,9 @@ module Fluent
 
     def normalize(target)
       event = {}
-      event[TIME]                                     = Time.at(target[TIME].to_f).utc.to_datetime.rfc3339(6)
+      event[TIME]              = Time.at(target[TIME].to_f).utc.to_datetime.rfc3339(6)
+      event[OUT_HOST_HOSTNAME] = ENV[ENV_HOSTNAME] unless ENV[ENV_HOSTNAME].nil?
+
       event[SYSTEMD] = { TRUSTED => {} }
       event[SYSTEMD][TRUSTED][OUT_HOST_PID]           = target[IN_HOST_PID] unless target[IN_HOST_PID].nil?
       event[SYSTEMD][TRUSTED][OUT_HOST_UID]           = target[IN_HOST_UID] unless target[IN_HOST_UID].nil?
@@ -113,15 +115,14 @@ module Fluent
       event[SYSTEMD][TRUSTED][OUT_HOST_SELINUX_LABEL] = target[IN_HOST_SELINUX_LABEL] unless target[IN_HOST_SELINUX_LABEL].nil?
       
       event[DOCKER] = {}
-      event[DOCKER][OUT_VM_AUID]       = target[IN_EVENT_TYPE][IN_VM_AUID] unless target[IN_EVENT_TYPE][IN_VM_AUID].nil?
-      event[DOCKER][OUT_VM_HOSTNAME]   = target[IN_EVENT_TYPE][IN_VM_HOSTNAME] unless target[IN_EVENT_TYPE][IN_VM_HOSTNAME].nil?
-      event[DOCKER][OUT_VM_IMAGE]      = target[IN_EVENT_TYPE][IN_VM_IMAGE] unless target[IN_EVENT_TYPE][IN_VM_IMAGE].nil?
-      event[DOCKER][OUT_VM_PID]        = target[IN_EVENT_TYPE][IN_VM_PID] unless target[IN_EVENT_TYPE][IN_VM_PID].nil?
-      event[DOCKER][OUT_VM_USER]       = target[IN_EVENT_TYPE][IN_VM_USER] unless target[IN_EVENT_TYPE][IN_VM_USER].nil?
-      event[DOCKER][OUT_VM_REASON]     = target[IN_EVENT_TYPE][IN_VM_REASON] unless target[IN_EVENT_TYPE][IN_VM_REASON].nil?
-      event[DOCKER][OUT_VM_OPERATION]  = target[IN_EVENT_TYPE][IN_VM_OPERATION] unless target[IN_EVENT_TYPE][IN_VM_OPERATION].nil?
-      event[DOCKER][OUT_VM_RESULT]     = target[IN_EVENT_TYPE][IN_VM_RESULT] unless target[IN_EVENT_TYPE][IN_VM_RESULT].nil?
-      event[DOCKER][OUT_HOST_HOSTNAME] = ENV[ENV_HOSTNAME] unless ENV[ENV_HOSTNAME].nil?
+      event[DOCKER][OUT_VM_AUID]      = target[IN_EVENT_TYPE][IN_VM_AUID] unless target[IN_EVENT_TYPE][IN_VM_AUID].nil?
+      event[DOCKER][OUT_VM_CONT_ID]   = target[IN_EVENT_TYPE][IN_VM_HOSTNAME] unless target[IN_EVENT_TYPE][IN_VM_HOSTNAME].nil?
+      event[DOCKER][OUT_VM_IMAGE]     = target[IN_EVENT_TYPE][IN_VM_IMAGE] unless target[IN_EVENT_TYPE][IN_VM_IMAGE].nil?
+      event[DOCKER][OUT_VM_PID]       = target[IN_EVENT_TYPE][IN_VM_PID] unless target[IN_EVENT_TYPE][IN_VM_PID].nil?
+      event[DOCKER][OUT_VM_USER]      = target[IN_EVENT_TYPE][IN_VM_USER] unless target[IN_EVENT_TYPE][IN_VM_USER].nil?
+      event[DOCKER][OUT_VM_REASON]    = target[IN_EVENT_TYPE][IN_VM_REASON] unless target[IN_EVENT_TYPE][IN_VM_REASON].nil?
+      event[DOCKER][OUT_VM_OPERATION] = target[IN_EVENT_TYPE][IN_VM_OPERATION] unless target[IN_EVENT_TYPE][IN_VM_OPERATION].nil?
+      event[DOCKER][OUT_VM_RESULT]    = target[IN_EVENT_TYPE][IN_VM_RESULT] unless target[IN_EVENT_TYPE][IN_VM_RESULT].nil?
 
       # raw audit.log duplicates 'exe' key
       if !target[IN_EVENT_TYPE][IN_VM_EXE].nil?
